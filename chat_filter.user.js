@@ -7,7 +7,7 @@
 // @include     http://www.twitch.tv/twitchplayspokemon/
 // @include     http://www.twitch.tv/chat/embed?channel=twitchplayspokemon&popout_chat=true
 
-// @version     1.5
+// @version     1.6
 // @updateURL   http://jpgohlke.github.io/twitch-chat-filter/chat_filter.user.js
 // @grant       unsafeWindow
 // ==/UserScript==
@@ -124,6 +124,7 @@ try{
 
 var $ = myWindow.jQuery;
 var CurrentChat = null;
+var chat_loaded = false;
     
 // --- Filtering predicates ---
 
@@ -338,7 +339,7 @@ var stylers = [
   { name: 'TppConvertAllcaps',
     comment: "Lowercase-only mode",
     isActive: true,
-    element: '#chat_line_list',
+    element: '.chat-messages',
     class: 'allcaps_filtered'
   },
 ];
@@ -371,7 +372,7 @@ function initialize_ui(){
 
     //TODO: #chat_line_list li.fromjtv
 
-    $("#chat_viewers_dropmenu_button").after('<a id="chat_filter_dropmenu_button" class="dropdown_glyph"><span></span><a>');
+    $("button.viewers").after('<a id="chat_filter_dropmenu_button" class="dropdown_glyph"><span></span><a>');
     $('#chat_filter_dropmenu_button').on('click', function(){
         $('#chat_filter_dropmenu').toggle();
     });
@@ -380,15 +381,15 @@ function initialize_ui(){
         .css('background', 'url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAv0lEQVQ4jc3SIQ7CQBAF0C8rK5E9AhI5R1gccpLOn+UACARHwCO5Aq6HQHAUQsAhwJGmlNBdIOEnY18mfwb4u4hIYWaSOySnAABVrWKMt9xx97OqVlDVkbufPoAuZiYAgBBC6e5NBnJQ1eqpK5KbBKQJIZQvyyc5f4eQ3A66pJlJjLG3N3dfJr0FyUUHudZ1PUtCWls9IDPbJyN90OBeulHV8beg6lfQKgsSkaJ18qOZTbIgAHD3NcmdiBTZSGruBIYOSjStwb0AAAAASUVORK5CYII=)')
         .css('position', 'relative');
         
-    $('#chat_speak').css('width', '149px');
-    $('#controls').append('<div id="chat_filter_dropmenu" class="dropmenu menu-like" style="position:absolute; bottom:45px; display:none;"><p style="margin-left:6px">Hide:</p></div>');
+    $('.send-chat-button').css('left', '107px');
+    $('.chat-interface').append('<div id="chat_filter_dropmenu" class="dropmenu menu-like" style="position:absolute; bottom:45px; display:none;"><p style="margin-left:6px">Hide:</p></div>');
     
     
     var controlPanel = $('#chat_filter_dropmenu');
     
     var customCssParts = [
-        "#chat_line_list .TppFiltered {display:none;} .filter_option{font-weight:normal; margin-bottom:0; color: #B9A3E3;}",
-        "#chat_line_list.allcaps_filtered span.chat_line{text-transform:lowercase;}"
+        ".chat-messages .TppFiltered {display:none;} .filter_option{font-weight:normal; margin-bottom:0; color: #B9A3E3;}",
+        ".chat-messages.allcaps_filtered span.chat-line{text-transform:lowercase;}"
     ];
 
     $('head').append('<style>' + customCssParts.join("") + '</style>');
@@ -429,11 +430,9 @@ function initialize_ui(){
 // --- Main ---
 
 function update_chat_with_filter(){
-    if(!CurrentChat) return; //Chat hasnt loaded yet.
-
-    $('#chat_line_list li').each(function() {
+    $('.chat-line').each(function() {
         var chatLine = $(this);
-        var chatText = chatLine.find(".chat_line").text();
+        var chatText = chatLine.find(".message").text().trim();
         
         if(passes_active_filters(chatText)){ 
             chatLine.removeClass("TppFiltered");
@@ -443,32 +442,29 @@ function update_chat_with_filter(){
     });
 }
 
-function initialize_filter(){
-    CurrentChat = myWindow.CurrentChat;
-    
-    update_chat_with_filter();
-    
-    var original_insert_chat_line = CurrentChat.insert_chat_line;
-    CurrentChat.insert_chat_line = function(info) {
-        if(!passes_active_filters(info.message)){ return false }
-        info.message = rewrite_with_active_rewriters(info.message);
-        
-        //console.log("----", info.message);
-        
-        return original_insert_chat_line.apply(this, arguments);
-    };
-}
-
 $(function(){
     //Checking for the spinner being gone is a more reliable way to chack
     //if the CurrentChat is fully loaded.
     var chatLoadedCheck = setInterval(function () {
-        if($("#chat_loading_spinner").css('display') == 'none'){
+        if($(".loading-mask").length == 0){
+			chat_loaded = true;
             clearInterval(chatLoadedCheck);
             initialize_ui();
-            initialize_filter();
+            update_chat_with_filter();
         }
     }, 100);
+	
+	
+
+	window.setInterval(function(){
+		if(chat_loaded)
+		{
+			update_chat_with_filter();
+		}
+	}, 10);
+
+
+	
 });
     
 }());
